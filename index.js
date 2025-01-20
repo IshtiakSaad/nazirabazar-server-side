@@ -203,6 +203,27 @@ async function run() {
             }
         });
 
+        // Delete from Favorite
+        app.delete("/users/:uid/favorites/:foodId", async (req, res) => {
+            const { uid, foodId } = req.params;
+
+            try {
+                const result = await userCollection.updateOne(
+                    { _id: uid },
+                    { $pull: { favoriteFoods: foodId } }
+                );
+
+                if (result.modifiedCount === 0) {
+                    return res.status(404).send({ error: "User not found or food not in favorites." });
+                }
+
+                res.status(200).send({ message: "food removed from favorites." });
+            } catch (error) {
+                console.error("Error removing favorite food:", error);
+                res.status(500).send({ error: "Failed to remove food from favorites." });
+            }
+        });
+
         // await client.connect();
         // await client.db("admin").command({ ping: 1 });
 
