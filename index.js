@@ -28,6 +28,18 @@ async function run() {
         const foodCollection = database.collection("foods");
         const userCollection = database.collection("users");
 
+        // CREATE a new Food
+        app.post('/foods', async (req, res) => {
+            const food = req.body;
+            try {
+                const result = await foodCollection.insertOne(food);
+                res.send(result);
+            } catch (error) {
+                console.error("Error inserting food:", error.message);
+                res.send({ message: "Failed to insert food" });
+            }
+        });
+
         // await client.connect();
         // await client.db("admin").command({ ping: 1 });
 
