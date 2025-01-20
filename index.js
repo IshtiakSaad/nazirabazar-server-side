@@ -1,13 +1,40 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173','https://job-portal-for-goribs.web.app',],
+    credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
+
+
+const authenticateJWT = (req, res, next) => {
+    const authHeader = req.headers.authorization; // Read the Authorization header
+  
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).send({ message: "Access Denied. No Token Provided." });
+    }
+  
+    const token = authHeader.split(" ")[1]; // Extract the token from the header
+  
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+      if (err) {
+        return res.status(403).send({ message: "Invalid Token." });
+      }
+      req.user = user; // Attach the user object to the request
+      next();
+    });
+  };
+  
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_KEY}@cluster0.gkupt.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
@@ -28,6 +55,20 @@ async function run() {
         const foodCollection = database.collection("foods");
         const userCollection = database.collection("users");
 
+
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.JWT_SECRET, { expiresIn: '1d' });
+        
+            res.send({
+                success: true,
+                token, // Send the token in the response body
+            });
+            console.log('JWT Generated:', token);
+        });
+        
+
+
         // CREATE a new Food
         app.post('/foods', async (req, res) => {
             const food = req.body;
@@ -39,6 +80,33 @@ async function run() {
                 res.send({ message: "Failed to insert food" });
             }
         });
+
+        // Update a food
+        app.put('/foods/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = {_id: new ObjectId(id)};
+            const options = {upsert: true};
+            const updatedFood = req.body;
+
+            const food = {
+                $set: {
+                    foodName: updatedFood.foodName,
+                    foodImage: updatedFood.foodImage,
+                    foodQuantity: updatedFood.foodQuantity,
+                    pickupLocation: updatedFood.pickupLocation,
+                    expiredDateTime: updatedFood.expiredDateTime,
+                    additionalNotes: updatedFood.additionalNotes,
+                    foodStatus: updatedFood.foodStatus, 
+                },
+            };
+
+            try {
+                const result = await foodCollection.updateOne(filter, food, options);
+                res.send(result);
+            } catch (error) {
+                res.send({error: "Error updating Food Details"});
+            };
+        })
 
         // READ all Foods
         app.get('/foods', async (req, res) => {
@@ -66,33 +134,6 @@ async function run() {
         });
 
 
-        // Update a food
-        app.put('/foods/:id', async (req, res) => {
-            const id = req.params.id;
-            const filter = { _id: new ObjectId(id) };
-            const options = { upsert: true };
-            const updatedFood = req.body;
-
-            const food = {
-                $set: {
-                    foodName: updatedFood.foodName,
-                    foodImage: updatedFood.foodImage,
-                    foodQuantity: updatedFood.foodQuantity,
-                    pickupLocation: updatedFood.pickupLocation,
-                    expiredDateTime: updatedFood.expiredDateTime,
-                    additionalNotes: updatedFood.additionalNotes,
-                    foodStatus: updatedFood.foodStatus,
-                },
-            };
-
-            try {
-                const result = await foodCollection.updateOne(filter, food, options);
-                res.send(result);
-            } catch (error) {
-                res.send({ error: "Error updating Food Details" });
-            };
-        })
-
         // Delete a Food
         app.delete('/foods/:id', async (req, res) => {
             const id = req.params.id;
@@ -107,6 +148,7 @@ async function run() {
                 res.send({ message: "Failed to delete movie" });
             }
         });
+
 
         // User related APIs
 
@@ -146,40 +188,42 @@ async function run() {
             }
         });
 
+
+
         // Fetch from Favorite        
         app.get("/users/:uid/favorites", authenticateJWT, async (req, res) => {
 
             // console.log("Cookie: ", req.cookies);
 
             try {
-                const { uid } = req.params;
-
-                console.log("User ID received:", uid);
-
-                // Query using string-based _id
-                const user = await userCollection.findOne({ _id: uid });
-                if (!user) {
-                    return res.status(404).send({ error: "User not found." });
-                }
-
-                if (!user.favoriteFoods || user.favoriteFoods.length === 0) {
-                    return res.status(404).send({ error: "No favorite foods found." });
-                }
-
-                const favoriteFoods = await foodCollection
-                    .find({
-                        _id: { $in: user.favoriteFoods.map((food) => new ObjectId(food.foodId)) },
-                    })
-                    .toArray();
-
-                res.send(favoriteFoods);
-                console.log("Favorite Foods:", favoriteFoods);
+              const { uid } = req.params;
+          
+              console.log("User ID received:", uid);
+          
+              // Query using string-based _id
+              const user = await userCollection.findOne({ _id: uid });
+              if (!user) {
+                return res.status(404).send({ error: "User not found." });
+              }
+          
+              if (!user.favoriteFoods || user.favoriteFoods.length === 0) {
+                return res.status(404).send({ error: "No favorite foods found." });
+              }
+          
+              const favoriteFoods = await foodCollection
+                .find({
+                  _id: { $in: user.favoriteFoods.map((food) => new ObjectId(food.foodId)) },
+                })
+                .toArray();
+          
+              res.send(favoriteFoods);
+              console.log("Favorite Foods:", favoriteFoods);
             } catch (error) {
-                console.error("Error fetching requested foods:", error);
-                res.status(500).send({ error: "Failed to fetch requested foods..." });
+              console.error("Error fetching requested foods:", error);
+              res.status(500).send({ error: "Failed to fetch requested foods..." });
             }
-        });
-
+          });
+          
 
         // Add to Favorite        
         app.post("/users/:uid/favorites", async (req, res) => {
@@ -202,6 +246,8 @@ async function run() {
                 res.status(500).send({ error: "Failed to add food to favorites." });
             }
         });
+
+
 
         // Delete from Favorite
         app.delete("/users/:uid/favorites/:foodId", async (req, res) => {
