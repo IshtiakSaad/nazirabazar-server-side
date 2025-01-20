@@ -146,6 +146,62 @@ async function run() {
             }
         });
 
+        // Fetch from Favorite        
+        app.get("/users/:uid/favorites", authenticateJWT, async (req, res) => {
+
+            // console.log("Cookie: ", req.cookies);
+
+            try {
+                const { uid } = req.params;
+
+                console.log("User ID received:", uid);
+
+                // Query using string-based _id
+                const user = await userCollection.findOne({ _id: uid });
+                if (!user) {
+                    return res.status(404).send({ error: "User not found." });
+                }
+
+                if (!user.favoriteFoods || user.favoriteFoods.length === 0) {
+                    return res.status(404).send({ error: "No favorite foods found." });
+                }
+
+                const favoriteFoods = await foodCollection
+                    .find({
+                        _id: { $in: user.favoriteFoods.map((food) => new ObjectId(food.foodId)) },
+                    })
+                    .toArray();
+
+                res.send(favoriteFoods);
+                console.log("Favorite Foods:", favoriteFoods);
+            } catch (error) {
+                console.error("Error fetching requested foods:", error);
+                res.status(500).send({ error: "Failed to fetch requested foods..." });
+            }
+        });
+
+
+        // Add to Favorite        
+        app.post("/users/:uid/favorites", async (req, res) => {
+            const { uid } = req.params;
+            const options = { upsert: true };
+            const { foodId } = req.body;
+
+            console.log(foodId);
+            try {
+                const result = await userCollection.updateOne(
+                    { _id: uid },
+                    { $addToSet: { favoriteFoods: foodId } },
+                    options
+
+                );
+                res.send(result);
+
+            } catch (error) {
+                console.error("Error adding to favorites:", error);
+                res.status(500).send({ error: "Failed to add food to favorites." });
+            }
+        });
 
         // await client.connect();
         // await client.db("admin").command({ ping: 1 });
