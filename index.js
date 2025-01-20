@@ -65,6 +65,35 @@ async function run() {
             }
         });
 
+
+        // Update a food
+        app.put('/foods/:id', async (req, res) => {
+            const id = req.params.id;
+            const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const updatedFood = req.body;
+
+            const food = {
+                $set: {
+                    foodName: updatedFood.foodName,
+                    foodImage: updatedFood.foodImage,
+                    foodQuantity: updatedFood.foodQuantity,
+                    pickupLocation: updatedFood.pickupLocation,
+                    expiredDateTime: updatedFood.expiredDateTime,
+                    additionalNotes: updatedFood.additionalNotes,
+                    foodStatus: updatedFood.foodStatus,
+                },
+            };
+
+            try {
+                const result = await foodCollection.updateOne(filter, food, options);
+                res.send(result);
+            } catch (error) {
+                res.send({ error: "Error updating Food Details" });
+            };
+        })
+
+
         // await client.connect();
         // await client.db("admin").command({ ping: 1 });
 
