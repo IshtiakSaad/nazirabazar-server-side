@@ -93,6 +93,20 @@ async function run() {
             };
         })
 
+        // Delete a Food
+        app.delete('/foods/:id', async (req, res) => {
+            const id = req.params.id;
+            console.log("Received ID:", id);
+            try {
+                const query = { '_id': new ObjectId(id) };
+                const result = await foodCollection.deleteOne(query);
+                console.log("Delete Result:", result);
+                res.send(result);
+            } catch (error) {
+                console.error("Error deleting movie:", error.message);
+                res.send({ message: "Failed to delete movie" });
+            }
+        });
 
         // await client.connect();
         // await client.db("admin").command({ ping: 1 });
