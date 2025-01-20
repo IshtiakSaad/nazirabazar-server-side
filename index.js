@@ -108,6 +108,45 @@ async function run() {
             }
         });
 
+        // User related APIs
+
+        app.post("/users", async (req, res) => {
+            const { uid, email, displayName, photoURL } = req.body;
+
+            try {
+                const existingUser = await userCollection.findOne({ _id: uid });
+
+                if (existingUser) {
+                    await userCollection.updateOne(
+                        { _id: uid },
+                        {
+                            $set: {
+                                email,
+                                displayName,
+                                photoURL,
+                            },
+                        }
+                    );
+                    return res.status(200).send({ message: "User updated successfully." });
+                }
+
+                const newUser = {
+                    _id: uid,
+                    email,
+                    displayName,
+                    photoURL,
+                    favoriteFoods: [],
+                };
+
+                await userCollection.insertOne(newUser);
+                res.status(201).send({ message: "User created successfully." });
+            } catch (error) {
+                console.error("Error adding/updating user:", error);
+                res.status(500).send({ error: "Failed to add/update user." });
+            }
+        });
+
+
         // await client.connect();
         // await client.db("admin").command({ ping: 1 });
 
