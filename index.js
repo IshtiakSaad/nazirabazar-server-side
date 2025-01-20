@@ -40,6 +40,31 @@ async function run() {
             }
         });
 
+        // READ all Foods
+        app.get('/foods', async (req, res) => {
+            try {
+                const cursor = foodCollection.find();
+                const result = await cursor.toArray();
+                res.send(result);
+            } catch (error) {
+                console.error("Error fetching foods:", error.message);
+                res.send({ message: "Failed to fetch foods" });
+            }
+        });
+
+        // READ single Food details
+        app.get('/foods/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+            try {
+                const food = await foodCollection.findOne(query);
+                res.json(food);
+                console.log(res);
+            } catch (error) {
+                res.status(500).send({ message: "Error fetching food details" });
+            }
+        });
+
         // await client.connect();
         // await client.db("admin").command({ ping: 1 });
 
